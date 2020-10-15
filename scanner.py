@@ -28,7 +28,7 @@ import sys
 import uuid
 
 import hashlib
-from crc32c import crc32
+from crc32c import crc32c
 
 # 64k Max post size
 MAX_POST_SIZE = 64 * 1024
@@ -383,7 +383,7 @@ def wfp_for_file(file: str, path: str) -> str:
 
       # Do we have a full gram?
       if len(gram) >= GRAM:
-        gram_crc32 = crc32(gram.encode('ascii'))
+        gram_crc32 = crc32c(gram.encode('ascii'))
         window.append(gram_crc32)
 
         # Do we have a full window?
@@ -398,7 +398,7 @@ def wfp_for_file(file: str, path: str) -> str:
             # Hashing the hash will result in a better balanced resulting data set
             # as it will counter the winnowing effect which selects the "minimum"
             # hash in each window
-            crc = crc32((min_hash).to_bytes(4, byteorder='little'))
+            crc = crc32c((min_hash).to_bytes(4, byteorder='little'))
             crc_hex = '{:08x}'.format(crc)
             if last_line != line:
               if output:
