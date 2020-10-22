@@ -329,7 +329,7 @@ def skip_snippets(src: str, file: str) -> bool:
     print("Skipping snippet analysis due to xml/html file: ", file)
     return True
   index = src.index('\n') if '\n' in src else len(src)
-  if len(src[0:src.index('\n')]) > MAX_LONG_LINE_CHARS:
+  if len(src[0:index]) > MAX_LONG_LINE_CHARS:
     print("Skipping snippet analysis due to long line in file: ", file)
     return True
   return False
