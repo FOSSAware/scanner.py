@@ -35,7 +35,7 @@ MAX_POST_SIZE = 64 * 1024
 
 MAX_LONG_LINE_CHARS = 1000
 
-RESULT_FILE = "scan-result.json"
+RESULT_FILE = None
 
 WFP_FILE_START = "file="
 
@@ -51,8 +51,19 @@ SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
+def log_result(str):
+  """
+  Logs result to either file or STDOUT
+  """
+  if RESULT_FILE:
+    with open(RESULT_FILE, "a") as rf:
+      rf.write(str+'\n')
+  else:
+    print(str)
+
 
 def main():
+  global RESULT_FILE
   api_key = None
   parser = argparse.ArgumentParser(description='Simple scanning agains SCANOSS API.')
 
@@ -95,19 +106,19 @@ def main():
     scantype = 'blacklist'
     sbom_path = args.blacklist
 
-  if args.output:
-    RESULT_FILE = args.output
+  if args.output:   
+    RESULT_FILE = args.output[0]
+    # Clear contents of file
+    open(RESULT_FILE, 'w').close()
   
   # Perform the scan
   if args.scan_dir:
-    print("Scanning directory: %s" % args.scan_dir)
     if not os.path.isdir(args.scan_dir):
       print("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
     scan_folder(args.scan_dir, api_key, scantype, sbom_path, args.format)
   elif args.wfp:
-    print("Scanning wfp file: ", args.wfp)
     scan_wfp(args.wfp,api_key, scantype, sbom_path, format=args.format)
 
 
@@ -149,9 +160,6 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
           wfp += wfp_for_file(files_index, path)
         else:
           wfp += wfp_for_file(file, path)
-        if files_index % 100 == 0:
-          print("Generating WFP: %d files processed" % files_index, end='\r')
-  print()
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
@@ -160,13 +168,12 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
 
 
 def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None, format = None):
+  global WFP_FILE_START
   file_count = count_files_in_wfp_file(wfp_file)
-  print("Scanning %s files with format %s" % (file_count, format))
   cur_files = 0
   cur_size = 0
   wfp = ""
-  with open(RESULT_FILE,"w") as rf:
-    rf.write("{\n")
+  log_result("{")
   with open(wfp_file) as f:
     for line in f:
       wfp += "\n" + line
@@ -174,30 +181,28 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
       if WFP_FILE_START in line:
         cur_files += 1
         if cur_size >= MAX_POST_SIZE:
-          print("Scanned %d/%d files" % (cur_files, file_count), end='\r')
+          
           # Scan current WFP and store
           scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
-          with open(RESULT_FILE,"a") as rf:
-            for key, value in scan_resp.items():
-              file_key = files_conversion[key] if files_conversion else key
-              rf.write("\"%s\":%s,\n" % (file_key, json.dumps(value, indent=4)))
+         
+          for key, value in scan_resp.items():
+            file_key = files_conversion[key] if files_conversion else key
+            log_result("\"%s\":%s,\n" %
+                        (file_key, json.dumps(value, indent=4)))
           cur_size = 0
           wfp = ""
   if wfp:
     scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
     first = True
-    with open(RESULT_FILE, "a") as rf:
-      for key, value in scan_resp.items():
-        file_key = files_conversion[key] if files_conversion else key
-        if first:
-          rf.write("\"%s\":%s\n" % (file_key, json.dumps(value, indent=4)))
-          first = False
-        else:
-          rf.write(",\"%s\":%s\n" % (file_key, json.dumps(value, indent=4)))
-  with open(RESULT_FILE,"a") as rf:
-    rf.write("}")
-  print()
-  print("Scan finished successfully")
+    
+    for key, value in scan_resp.items():
+      file_key = files_conversion[key] if files_conversion else key
+      if first:
+        log_result("\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
+        first = False
+      else:
+        log_result(",\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
+    log_result("}")
 
 def count_files_in_wfp_file(wfp_file: str):
   count = 0
@@ -326,11 +331,9 @@ def skip_snippets(src: str, file: str) -> bool:
     return True
   prefix = src[0:5].lower()
   if prefix.startswith("<?xml") or prefix.startswith("<html"):
-    print("Skipping snippet analysis due to xml/html file: ", file)
     return True
   index = src.index('\n') if '\n' in src else len(src)
   if len(src[0:index]) > MAX_LONG_LINE_CHARS:
-    print("Skipping snippet analysis due to long line in file: ", file)
     return True
   return False
 
@@ -356,7 +359,7 @@ def wfp_for_file(file: str, path: str) -> str:
   # Print file line
   wfp = 'file={0},{1},{2}\n'.format(file_md5, len(contents), file)
   # We don't process snippets for binaries.
-  if is_binary(path) or skip_snippets(contents.decode(), file):
+  if is_binary(path) or skip_snippets(contents.decode('utf-8','ignore'), file):
     return wfp
   # Initialize variables
   gram = ""
