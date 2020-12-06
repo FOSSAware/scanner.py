@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# 
+#
 #   Copyright (C) 2018-2020 SCANOSS LTD
-#  
+#
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 2 of the License, or
 #   (at your option) any later version.
-#  
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #   GNU General Public License for more details.
-#  
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#  
+#
 
 import argparse
 from pathlib import Path
@@ -43,13 +43,20 @@ WFP_FILE_START = "file="
 FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "gif", "md", "test", "cfg", "pdf",
                 "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico", "wfp"]
 
-FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules", "/vendor"]
+FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/",
+                 "__pycache__", "/node_modules", "/vendor"]
 
-DEFAULT_URL="https://osskb.org/api/scan/direct"
-SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else DEFAULT_URL
+DEFAULT_URL = "https://osskb.org/api/scan/direct"
+SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get(
+    "SCANOSS_SCAN_URL") else DEFAULT_URL
 SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
+
+
+def print_stderr(*args, **kwargs):
+  print(*args, file=sys.stderr, **kwargs)
+
 
 def log_result(str):
   """
@@ -65,21 +72,23 @@ def log_result(str):
 def main():
   global RESULT_FILE
   api_key = None
-  parser = argparse.ArgumentParser(description='Simple scanning agains SCANOSS API.')
-
+  parser = argparse.ArgumentParser(
+      description='Simple scanning agains SCANOSS API.')
 
   parser.add_argument('scan_dir', metavar='DIR', type=str, nargs='?',
-                    help='A folder to scan')
+                      help='A folder to scan')
   parser.add_argument('--wfp',  type=str,
-                    help='Scan a WFP File')
+                      help='Scan a WFP File')
   parser.add_argument('--ignore',  type=str,
                       help='Scan and ignore components in SBOM file')
   parser.add_argument('--identify', nargs=1, type=str,
                       help='Scan and identify components in SBOM file')
   parser.add_argument('--blacklist', nargs=1, type=str,
                       help='Scan and blacklist components in SBOM file')
-  parser.add_argument('--output', '-o', nargs=1, type=str, help='Optional name for the result file.')
-  parser.add_argument('--format', '-f', nargs=1, type=str, choices=['plain','spdx','cyclonedx'], help='Optional format of the scan result')
+  parser.add_argument('--output', '-o', nargs=1, type=str,
+                      help='Optional name for the result file.')
+  parser.add_argument('--format', '-f', nargs=1, type=str, choices=[
+                      'plain', 'spdx', 'spdx_xml', 'cyclonedx'], help='Optional format of the scan result')
 
   args = parser.parse_args()
   # Check for SCANOSS Key
@@ -89,12 +98,11 @@ def main():
     # Read key from file
     with open(scanoss_keyfile) as f:
       api_key = f.readline().strip()
-  
-  
+
   # Check if scan type has been declared
 
   scantype = ""
-  
+
   sbom_path = ""
   if args.ignore:
     scantype = 'ignore'
@@ -106,20 +114,23 @@ def main():
     scantype = 'blacklist'
     sbom_path = args.blacklist
 
-  if args.output:   
+  if args.output:
     RESULT_FILE = args.output[0]
     # Clear contents of file
     open(RESULT_FILE, 'w').close()
   
+  format = args.format[0] if args.format else ''
+
+
   # Perform the scan
   if args.scan_dir:
     if not os.path.isdir(args.scan_dir):
       print("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
-    scan_folder(args.scan_dir, api_key, scantype, sbom_path, args.format)
+    scan_folder(args.scan_dir, api_key, scantype, sbom_path, format)
   elif args.wfp:
-    scan_wfp(args.wfp,api_key, scantype, sbom_path, format=args.format)
+    scan_wfp(args.wfp, api_key, scantype, sbom_path, format=format)
 
 
 def valid_folder(folder):
@@ -156,45 +167,48 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
         files_index += 1
         path = os.path.join(root, file)
         if files_conversion:
-          files_conversion[str(files_index)] = path          
+          files_conversion[str(files_index)] = path
           wfp += wfp_for_file(files_index, path)
         else:
           wfp += wfp_for_file(file, path)
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
-                       sbom_path, files_conversion, format)
-  
+           sbom_path, files_conversion, format)
 
 
-def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None, format = None):
+def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion=None, format=None):
   global WFP_FILE_START
   file_count = count_files_in_wfp_file(wfp_file)
   cur_files = 0
   cur_size = 0
   wfp = ""
-  log_result("{")
-  with open(wfp_file) as f:
-    for line in f:
-      wfp += "\n" + line
-      cur_size += len(line.encode('utf-8'))
-      if WFP_FILE_START in line:
-        cur_files += 1
-        if cur_size >= MAX_POST_SIZE:
-          
-          # Scan current WFP and store
-          scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
-         
-          for key, value in scan_resp.items():
-            file_key = files_conversion[key] if files_conversion else key
-            log_result("\"%s\":%s,\n" %
-                        (file_key, json.dumps(value, indent=4)))
-          cur_size = 0
-          wfp = ""
+  if 'xml' in format:
+    scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
+    log_result(scan_resp)
+  else:
+    log_result("{")
+    with open(wfp_file) as f:
+      for line in f:
+        wfp += "\n" + line
+        cur_size += len(line.encode('utf-8'))
+        if WFP_FILE_START in line:
+          cur_files += 1
+          if cur_size >= MAX_POST_SIZE:
+
+            # Scan current WFP and store
+            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
+
+            for key, value in scan_resp.items():
+              file_key = files_conversion[key] if files_conversion else key
+              log_result("\"%s\":%s,\n" %
+                         (file_key, json.dumps(value, indent=4)))
+            cur_size = 0
+            wfp = ""
   if wfp:
     scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
     first = True
-    
+
     for key, value in scan_resp.items():
       file_key = files_conversion[key] if files_conversion else key
       if first:
@@ -204,6 +218,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
         log_result(",\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
     log_result("}")
 
+
 def count_files_in_wfp_file(wfp_file: str):
   count = 0
   with open(wfp_file) as f:
@@ -211,6 +226,7 @@ def count_files_in_wfp_file(wfp_file: str):
       if "file=" in line:
         count += 1
   return count
+
 
 def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
   form_data = {}
@@ -233,6 +249,8 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
           (r.status_code, r.text))
     exit(1)
   try:
+    if 'xml' in format:
+      return r.text
     json_resp = r.json()
     return json_resp
   except JSONDecodeError:
@@ -241,7 +259,6 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
       f.write(r.text)
     exit(1)
   # Decode file names
-  
 
 
 """
@@ -326,7 +343,7 @@ def normalize(byte):
 
 def skip_snippets(src: str, file: str) -> bool:
   if len(src) == 0:
-    return True  
+    return True
   if src[0] == "{":
     return True
   prefix = src[0:5].lower()
@@ -350,16 +367,16 @@ def wfp_for_file(file: str, path: str) -> str:
   """
   contents = None
   binary = False
-  
+
   with open(path, 'rb') as f:
     contents = f.read()
-   
+
   file_md5 = hashlib.md5(
       contents).hexdigest()
   # Print file line
   wfp = 'file={0},{1},{2}\n'.format(file_md5, len(contents), file)
   # We don't process snippets for binaries.
-  if is_binary(path) or skip_snippets(contents.decode('utf-8','ignore'), file):
+  if is_binary(path) or skip_snippets(contents.decode('utf-8', 'ignore'), file):
     return wfp
   # Initialize variables
   gram = ""
