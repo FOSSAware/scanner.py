@@ -184,6 +184,8 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
   cur_size = 0
   wfp = ""
   if 'xml' in format:
+    with open(wfp_file) as f:
+      wfp = f.read()
     scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
     log_result(scan_resp)
   else:
@@ -205,18 +207,18 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
                          (file_key, json.dumps(value, indent=4)))
             cur_size = 0
             wfp = ""
-  if wfp:
-    scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
-    first = True
+    if wfp:
+      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
+      first = True
 
-    for key, value in scan_resp.items():
-      file_key = files_conversion[key] if files_conversion else key
-      if first:
-        log_result("\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
-        first = False
-      else:
-        log_result(",\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
-    log_result("}")
+      for key, value in scan_resp.items():
+        file_key = files_conversion[key] if files_conversion else key
+        if first:
+          log_result("\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
+          first = False
+        else:
+          log_result(",\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
+      log_result("}")
 
 
 def count_files_in_wfp_file(wfp_file: str):
