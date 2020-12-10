@@ -160,11 +160,10 @@ def download_project(url: str):
       url += GITEE_MASTER_ZIP
     elif GITHUB_ROOT_URL in url:
       url+= GITHUB_MASTER_ZIP
-  print_stderr("Download URL: %s" % url)
+  
   if url.endswith(".zip"):
     zipfile = url.replace("https://","").replace("/","_").replace(".","_")
     r = requests.get(url, headers={'Accept': 'application/zip', 'User-Agent': 'curl/7.64.1'})
-    print_stderr(r.request.headers)
     if r.status_code != 200:
       print_stderr("ERROR: HTTP Status %d getting content from URL: %s, " % (r.status_code, url))
     with open(zipfile, 'wb') as f:
