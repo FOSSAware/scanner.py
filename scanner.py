@@ -18,17 +18,19 @@
 #
 
 import argparse
-from pathlib import Path
+from binaryornot.check import is_binary
+from crc32c import crc32c
+import hashlib
 import json
 from json.decoder import JSONDecodeError
-from binaryornot.check import is_binary
-import requests
 import os
+from pathlib import Path
+import requests
 import sys
 import uuid
+from zipfile import ZipFile
 
-import hashlib
-from crc32c import crc32c
+
 
 # 64k Max post size
 MAX_POST_SIZE = 64 * 1024
@@ -45,6 +47,11 @@ FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/",
                  "__pycache__", "/node_modules", "/vendor"]
+
+GITHUB_ROOT_URL = "https://github.com"
+GITEE_ROOT_URL = "https://gitee.com"
+GITHUB_MASTER_ZIP = "/archive/master.zip"
+GITEE_MASTER_ZIP = "/repository/archive/master.zip"
 
 DEFAULT_URL = "https://osskb.org/api/scan/direct"
 SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get(
@@ -77,6 +84,7 @@ def main():
 
   parser.add_argument('scan_dir', metavar='DIR', type=str, nargs='?',
                       help='A folder to scan')
+  parser.add_argument('--url', type=str, help="Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee")
   parser.add_argument('--wfp',  type=str,
                       help='Scan a WFP File')
   parser.add_argument('--ignore',  type=str,
@@ -123,9 +131,15 @@ def main():
 
 
   # Perform the scan
-  if args.scan_dir:
+  if args.url:
+    scan_dir = download_project(args.url)
+    if not scan_dir:
+      print_stderr("Invalid URL: %s", args.url)
+      exit(1)
+    scan_folder(scan_dir, api_key, scantype, sbom_path, format)
+  elif args.scan_dir:
     if not os.path.isdir(args.scan_dir):
-      print("Invalid directory: %s" % args.scan_dir)
+      print_stderr("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
     scan_folder(args.scan_dir, api_key, scantype, sbom_path, format)
@@ -138,6 +152,30 @@ def valid_folder(folder):
     if excluded in folder:
       return False
   return True
+
+def download_project(url: str):
+  global GITEE_ROOT_URL, GITHUB_ROOT_URL
+  if (GITEE_ROOT_URL in url or GITHUB_ROOT_URL in url) and not url.endswith(".zip"):
+    if GITEE_ROOT_URL in url:
+      url += GITEE_MASTER_ZIP
+    elif GITHUB_ROOT_URL in url:
+      url+= GITHUB_MASTER_ZIP
+  print_stderr("Download URL: %s" % url)
+  if url.endswith(".zip"):
+    zipfile = url.replace("https://","").replace("/","_").replace(".","_")
+    r = requests.get(url, headers={'Accept': 'application/zip', 'User-Agent': 'curl/7.64.1'})
+    print_stderr(r.request.headers)
+    if r.status_code != 200:
+      print_stderr("ERROR: HTTP Status %d getting content from URL: %s, " % (r.status_code, url))
+    with open(zipfile, 'wb') as f:
+      f.write(r.content)
+    folder = zipfile.replace("_zip", "")
+    with ZipFile(zipfile, 'r') as zipObject:
+      zipObject.extractall(folder)
+    os.remove(zipfile)
+    return folder
+  return None
+    
 
 
 def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: str):
