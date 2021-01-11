@@ -114,13 +114,13 @@ def main():
   sbom_path = ""
   if args.ignore:
     scantype = 'ignore'
-    sbom_path = args.ignore
+    sbom_path = args.ignore[0]
   elif args.identify:
     scantype = 'identify'
-    sbom_path = args.identify
+    sbom_path = args.identify[0]
   elif args.blacklist:
     scantype = 'blacklist'
-    sbom_path = args.blacklist
+    sbom_path = args.blacklist[0]
 
   if args.output:
     RESULT_FILE = args.output[0]
