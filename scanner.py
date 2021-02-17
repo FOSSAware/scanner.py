@@ -31,7 +31,6 @@ import uuid
 from zipfile import ZipFile
 
 
-
 # 64k Max post size
 MAX_POST_SIZE = 64 * 1024
 
@@ -84,7 +83,8 @@ def main():
 
   parser.add_argument('scan_dir', metavar='DIR', type=str, nargs='?',
                       help='A folder to scan')
-  parser.add_argument('--url', type=str, help="Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee")
+  parser.add_argument(
+      '--url', type=str, help="Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee")
   parser.add_argument('--wfp',  type=str,
                       help='Scan a WFP File')
   parser.add_argument('--ignore',  type=str,
@@ -97,6 +97,7 @@ def main():
                       help='Optional name for the result file.')
   parser.add_argument('--format', '-f', nargs=1, type=str, choices=[
                       'plain', 'spdx', 'spdx_xml', 'cyclonedx'], help='Optional format of the scan result')
+  parser.add_argument('--summary', '-s', help='Generate a component summary of the scan', action='store_true')
 
   args = parser.parse_args()
   # Check for SCANOSS Key
@@ -126,8 +127,13 @@ def main():
     RESULT_FILE = args.output[0]
     # Clear contents of file
     open(RESULT_FILE, 'w').close()
-  
+  elif args.summary:
+    RESULT_FILE='scan-result.json'
+    # Clear contents of file
+    open(RESULT_FILE, 'w').close()
+
   format = args.format[0] if args.format else ''
+
 
 
   # Perform the scan
@@ -146,6 +152,9 @@ def main():
   elif args.wfp:
     scan_wfp(args.wfp, api_key, scantype, sbom_path, format=format)
 
+  if args.summary:
+    summary = build_summary(RESULT_FILE)
+    print(json.dumps(list(summary.values())))
 
 def valid_folder(folder):
   for excluded in FILTERED_DIRS:
@@ -153,19 +162,22 @@ def valid_folder(folder):
       return False
   return True
 
+
 def download_project(url: str):
   global GITEE_ROOT_URL, GITHUB_ROOT_URL
   if (GITEE_ROOT_URL in url or GITHUB_ROOT_URL in url) and not url.endswith(".zip"):
     if GITEE_ROOT_URL in url:
       url += GITEE_MASTER_ZIP
     elif GITHUB_ROOT_URL in url:
-      url+= GITHUB_MASTER_ZIP
-  
+      url += GITHUB_MASTER_ZIP
+
   if url.endswith(".zip"):
-    zipfile = url.replace("https://","").replace("/","_").replace(".","_")
-    r = requests.get(url, headers={'Accept': 'application/zip', 'User-Agent': 'curl/7.64.1'})
+    zipfile = url.replace("https://", "").replace("/", "_").replace(".", "_")
+    r = requests.get(
+        url, headers={'Accept': 'application/zip', 'User-Agent': 'curl/7.64.1'})
     if r.status_code != 200:
-      print_stderr("ERROR: HTTP Status %d getting content from URL: %s, " % (r.status_code, url))
+      print_stderr(
+          "ERROR: HTTP Status %d getting content from URL: %s, " % (r.status_code, url))
     with open(zipfile, 'wb') as f:
       f.write(r.content)
     folder = zipfile.replace("_zip", "")
@@ -174,7 +186,6 @@ def download_project(url: str):
     os.remove(zipfile)
     return folder
   return None
-    
 
 
 def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: str):
@@ -298,6 +309,23 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
       f.write(r.text)
     exit(1)
   # Decode file names
+
+
+def build_summary(filename: str):
+  summary = {}
+  with open(filename) as f:
+    data = json.load(f)
+    for key, v in data.items():
+      for value in v:
+        if value.get('id') != 'none':
+          vcv = '%s:%s:%s' % (value.get('vendor'), value.get(
+              'component'), value.get('version'))
+          if summary.get(vcv):
+            summary[vcv]['paths'].append(key)
+          else:
+            summary[vcv] = {'vendor': value.get('vendor'), 'component': value.get(
+                'component'), 'version': value.get('version'), 'url': value.get('url'), 'paths': [key]}
+  return summary
 
 
 """
