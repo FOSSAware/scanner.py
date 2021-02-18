@@ -97,7 +97,8 @@ def main():
                       help='Optional name for the result file.')
   parser.add_argument('--format', '-f', nargs=1, type=str, choices=[
                       'plain', 'spdx', 'spdx_xml', 'cyclonedx'], help='Optional format of the scan result')
-  parser.add_argument('--summary', '-s', help='Generate a component summary of the scan', action='store_true')
+  parser.add_argument(
+      '--summary', '-s', help='Generate a component summary of the scan', action='store_true')
 
   args = parser.parse_args()
   # Check for SCANOSS Key
@@ -128,13 +129,11 @@ def main():
     # Clear contents of file
     open(RESULT_FILE, 'w').close()
   elif args.summary:
-    RESULT_FILE='scan-result.json'
+    RESULT_FILE = 'scan-result.json'
     # Clear contents of file
     open(RESULT_FILE, 'w').close()
 
   format = args.format[0] if args.format else ''
-
-
 
   # Perform the scan
   if args.url:
@@ -155,6 +154,7 @@ def main():
   if args.summary:
     summary = build_summary(RESULT_FILE)
     print(json.dumps(list(summary.values())))
+
 
 def valid_folder(folder):
   for excluded in FILTERED_DIRS:
@@ -231,6 +231,8 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
   cur_files = 0
   cur_size = 0
   wfp = ""
+  max_component = {'name': '', 'hits': 0}
+  components = {}
   if 'xml' in format:
     with open(wfp_file) as f:
       wfp = f.read()
@@ -247,16 +249,29 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
           if cur_size >= MAX_POST_SIZE:
 
             # Scan current WFP and store
-            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
+            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'])
 
             for key, value in scan_resp.items():
               file_key = files_conversion[key] if files_conversion else key
               log_result("\"%s\":%s,\n" %
                          (file_key, json.dumps(value, indent=4)))
+              for v in value:
+                if v.get('id') != 'none':
+                  vcv = '%s:%s:%s' % (v.get('vendor'), v.get(
+                      'component'), v.get('version'))
+                  if vcv in components:
+                    components[vcv] += 1
+                  else:
+                    components[vcv] = 1
+                  if max_component['hits'] < components[vcv]:
+                    max_component['name'] = v.get('component')
+                    max_component['hits'] = components[vcv]   
+
+
             cur_size = 0
             wfp = ""
     if wfp:
-      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
+      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'])
       first = True
 
       for key, value in scan_resp.items():
@@ -278,12 +293,12 @@ def count_files_in_wfp_file(wfp_file: str):
   return count
 
 
-def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
+def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str, context: str):
   form_data = {}
   if scantype:
     with open(sbom_path) as f:
       sbom = f.read()
-    form_data = {'type': scantype, 'assets': sbom}
+    form_data = {'type': scantype, 'assets': sbom, 'context': context}
   if format:
     form_data['format'] = format
   headers = {}
