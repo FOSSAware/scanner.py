@@ -41,8 +41,26 @@ RESULT_FILE = None
 WFP_FILE_START = "file="
 
 # List of extensions that are ignored
-FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "gif", "md", "test", "cfg", "pdf",
-                "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico", "wfp"]
+FILTERED_EXT = [# File extensions 
+                ".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8", ".9", ".ac", ".adoc", ".am",
+                ".asciidoc", ".bmp", ".build", ".cfg", ".chm", ".class", ".cmake", ".cnf",
+                ".conf", ".config", ".contributors", ".copying", ".crt", ".csproj", ".css",
+                ".csv", ".cvsignore", ".dat", ".data", ".doc", ".ds_store", ".dtd", ".dts",
+                ".dtsi", ".dump", ".eot", ".eps", ".geojson", ".gdoc", ".gif", ".gitignore",
+                ".glif", ".gmo", ".gradle", ".guess", ".hex", ".htm", ".html", ".ico", ".in",
+                ".inc", ".info", ".ini", ".ipynb", ".jpeg", ".jpg", ".json", ".jsonld",
+                ".log", ".m4", ".map", ".markdown", ".md", ".md5", ".meta", ".mk", ".mxml",
+                ".o", ".otf", ".out", ".pbtxt", ".pdf", ".pem", ".phtml", ".plist", ".png",
+                ".po", ".ppt", ".prefs", ".properties", ".pyc", ".qdoc", ".result", ".rgb",
+                ".rst", ".scss", ".sha", ".sha1", ".sha2", ".sha256", ".sln", ".spec", ".sql",
+                ".sub", ".svg", ".svn-base", ".tab", ".template", ".test", ".tex", ".tiff",
+                ".toml", ".ttf", ".txt", ".utf-8", ".vim", ".wav", ".whl", ".woff", ".xht",
+                ".xhtml", ".xls", ".xml", ".xpm", ".xsd", ".xul", ".yaml", ".yml",
+
+                # File endings 
+                "-DOC", "CHANGELOG", "CONFIG", "COPYING", "COPYING.LIB", "LICENSE",
+                "LICENSE.MD", "LICENSE.TXT", "LICENSES", "MAKEFILE", "NOTICE", "NOTICE",
+                "README", "SWIFTDOC", "TEXIDOC", "TODO", "VERSION", ]
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/",
                  "__pycache__", "/node_modules", "/vendor"]
@@ -187,6 +205,20 @@ def download_project(url: str):
     return folder
   return None
 
+def filter_folder_files(files):
+  list = []
+
+  for file in files:
+    filter = False
+    for ending in FILTERED_EXT:
+      if file.endswith(ending):
+        filter = True
+        break
+    if not filter:
+      list.append(file)
+  
+  return list
+
 
 def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: str):
   """ Performs a scan of the folder given
@@ -211,7 +243,7 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
   files_index = 0
   for root, sub, files in os.walk(dir):
     if valid_folder(root):
-      for file in [f for f in files if os.path.splitext(f)[1][1:] not in FILTERED_EXT]:
+      for file in filter_folder_files(files):
         files_index += 1
         path = os.path.join(root, file)
         if files_conversion:
