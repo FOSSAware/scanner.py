@@ -116,6 +116,8 @@ def main():
   parser.add_argument('--format', '-f', nargs=1, type=str, choices=[
                       'plain', 'spdx', 'spdx_xml', 'cyclonedx'], help='Optional format of the scan result')
   parser.add_argument(
+      '--obfuscate', '-p', help='Obfuscate file names. WARNING: Obfuscation affects the scan results accuracy.', action='store_true')
+  parser.add_argument(
       '--summary', '-s', help='Generate a component summary of the scan', action='store_true')
 
   args = parser.parse_args()
@@ -152,6 +154,7 @@ def main():
     open(RESULT_FILE, 'w').close()
 
   format = args.format[0] if args.format else ''
+  
 
   # Perform the scan
   if args.url:
@@ -172,6 +175,9 @@ def main():
   if args.summary:
     summary = build_summary(RESULT_FILE)
     print(json.dumps(list(summary.values())))
+  
+  if args.obfuscate: 
+    format = 'obs'
 
 
 def valid_folder(folder):
@@ -237,7 +243,7 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
 
   wfp = ''
   # This is a dictionary that is used to perform a lookup of a file name using the corresponding file index
-  files_conversion = {} if not format else None
+  files_conversion = {} if format == 'obs' else None
   # We assign a number to each of the files. This avoids sending the file names to SCANOSS API,
   # thus hiding the names and the structure of the project from SCANOSS API.
   files_index = 0
@@ -254,7 +260,7 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
-           sbom_path, files_conversion, format)
+           sbom_path, files_conversion, format if format != 'obs' else None)
 
 
 def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion=None, format=None):
