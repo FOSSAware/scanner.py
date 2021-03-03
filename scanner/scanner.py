@@ -263,7 +263,7 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
            sbom_path, files_conversion, format if format != 'obs' else None)
 
 
-def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion=None, format=None):
+def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion=None, format=None, data_extra=None):
   global WFP_FILE_START
   file_count = count_files_in_wfp_file(wfp_file)
   cur_files = 0
@@ -287,7 +287,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
           if cur_size >= MAX_POST_SIZE:
 
             # Scan current WFP and store
-            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'])
+            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'], data_extra)
 
             for key, value in scan_resp.items():
               file_key = files_conversion[key] if files_conversion else key
@@ -309,7 +309,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
             cur_size = 0
             wfp = ""
     if wfp:
-      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'])
+      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'], data_extra)
       first = True
 
       for key, value in scan_resp.items():
@@ -331,8 +331,8 @@ def count_files_in_wfp_file(wfp_file: str):
   return count
 
 
-def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str, context: str):
-  form_data = {}
+def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str, context: str, data_extra=None):
+  form_data = data_extra if data_extra else {}
   if scantype:
     with open(sbom_path) as f:
       sbom = f.read()
