@@ -36,8 +36,6 @@ MAX_POST_SIZE = 64 * 1024
 
 MAX_LONG_LINE_CHARS = 1000
 
-RESULT_FILE = None
-
 WFP_FILE_START = "file="
 
 # List of extensions that are ignored
@@ -82,20 +80,19 @@ def print_stderr(*args, **kwargs):
   print(*args, file=sys.stderr, **kwargs)
 
 
-def log_result(str):
+def log_result(str, outfile = None):
   """
   Logs result to either file or STDOUT
   """
-  if RESULT_FILE:
-    with open(RESULT_FILE, "a") as rf:
+  if outfile:
+    with open(outfile, "a") as rf:
       rf.write(str+'\n')
   else:
     print(str)
 
 
 def main():
-  global RESULT_FILE
-  api_key = None
+  
   parser = argparse.ArgumentParser(
       description='Simple scanning agains SCANOSS API.')
 
@@ -121,13 +118,14 @@ def main():
       '--summary', '-s', help='Generate a component summary of the scan', action='store_true')
 
   args = parser.parse_args()
+  scan_ctx = {}
   # Check for SCANOSS Key
   home = Path.home()
   scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
   if os.path.isfile(scanoss_keyfile):
     # Read key from file
     with open(scanoss_keyfile) as f:
-      api_key = f.readline().strip()
+      scan_ctx['api_key'] = f.readline().strip()
 
   # Check if scan type has been declared
 
@@ -143,37 +141,41 @@ def main():
   elif args.blacklist:
     scantype = 'blacklist'
     sbom_path = args.blacklist[0]
+  scan_ctx['scantype'] = scantype
+  scan_ctx['sbom_path'] = sbom_path
 
   if args.output:
-    RESULT_FILE = args.output[0]
+    scan_ctx['outfile'] = args.output[0]
     # Clear contents of file
-    open(RESULT_FILE, 'w').close()
+    open(scan_ctx['outfile'], 'w').close()
   elif args.summary:
-    RESULT_FILE = 'scan-result.json'
+    scan_ctx['outfile'] = 'scan-result.json'
     # Clear contents of file
-    open(RESULT_FILE, 'w').close()
+    open(scan_ctx['outfile'], 'w').close()
 
-  format = args.format[0] if args.format else ''
+  scan_ctx['format'] = args.format[0] if args.format else ''
   
 
   # Perform the scan
   if args.url:
-    scan_dir = download_project(args.url)
-    if not scan_dir:
+    scan_ctx['scan_dir'] = download_project(args.url)
+    if not scan_ctx.get('scan_dir'):
       print_stderr("Invalid URL: %s", args.url)
       exit(1)
-    scan_folder(scan_dir, api_key, scantype, sbom_path, format)
+    scan_folder(scan_ctx)
   elif args.scan_dir:
     if not os.path.isdir(args.scan_dir):
       print_stderr("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
-    scan_folder(args.scan_dir, api_key, scantype, sbom_path, format)
+    scan_ctx['scan_dir'] = args.scan_dir
+    scan_folder(scan_ctx)
   elif args.wfp:
-    scan_wfp(args.wfp, api_key, scantype, sbom_path, format=format)
+    scan_ctx['wfp']
+    scan_wfp(scan_ctx)
 
   if args.summary:
-    summary = build_summary(RESULT_FILE)
+    summary = build_summary(scan_ctx['outfile'])
     print(json.dumps(list(summary.values())))
   
   if args.obfuscate: 
@@ -226,7 +228,7 @@ def filter_folder_files(files):
   return list
 
 
-def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: str):
+def scan_folder(ctx):
   """ Performs a scan of the folder given
 
   Parameters
@@ -240,14 +242,14 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
   sbom_path: str
     A path to a valid CycloneDX or SPDX 2.2 JSON document.
   """
-
+  format = ctx.get('format')
   wfp = ''
   # This is a dictionary that is used to perform a lookup of a file name using the corresponding file index
   files_conversion = {} if format == 'obs' else None
   # We assign a number to each of the files. This avoids sending the file names to SCANOSS API,
   # thus hiding the names and the structure of the project from SCANOSS API.
   files_index = 0
-  for root, sub, files in os.walk(dir):
+  for root, sub, files in os.walk(ctx['scan_dir']):
     if valid_folder(root):
       for file in filter_folder_files(files):
         files_index += 1
