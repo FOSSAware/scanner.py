@@ -8,4 +8,5 @@ dist/
 build/
 .eggs
 *.egg-info
+__pycache__
 

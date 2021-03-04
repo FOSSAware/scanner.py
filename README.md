@@ -18,7 +18,7 @@ The complete usage can be seen by using the `-h` flag.
 
 ```
 % ./scanner.py -h
-usage: scanner.py [-h] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY] [--blacklist BLACKLIST] [--output OUTPUT] [--format {plain,spdx,cyclonedx}] [DIR]
+usage: scanner.py [-h] [--url URL] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY] [--blacklist BLACKLIST] [--output OUTPUT] [--format {plain,spdx,spdx_xml,cyclonedx}] [--obfuscate] [--summary] [DIR]
 
 Simple scanning agains SCANOSS API.
 
@@ -27,6 +27,7 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --url URL             Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee
   --wfp WFP             Scan a WFP File
   --ignore IGNORE       Scan and ignore components in SBOM file
   --identify IDENTIFY   Scan and identify components in SBOM file
@@ -34,9 +35,15 @@ optional arguments:
                         Scan and blacklist components in SBOM file
   --output OUTPUT, -o OUTPUT
                         Optional name for the result file.
-  --format {plain,spdx,cyclonedx}, -f {plain,spdx,cyclonedx}
+  --format {plain,spdx,spdx_xml,cyclonedx}, -f {plain,spdx,spdx_xml,cyclonedx}
                         Optional format of the scan result
+  --obfuscate, -p       Obfuscate file names. WARNING: Obfuscation affects the scan results accuracy.
+  --summary, -s         Generate a component summary of the scan
 ```
+
+### Installation via pip
+
+You can also install scanner.py via `pip`: `pip3 install scanoss-scanner`
 
 ### Scanning URL
 
