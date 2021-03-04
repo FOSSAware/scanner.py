@@ -53,14 +53,14 @@ FILTERED_EXT = [# File extensions
                 ".rst", ".scss", ".sha", ".sha1", ".sha2", ".sha256", ".sln", ".spec", ".sql",
                 ".sub", ".svg", ".svn-base", ".tab", ".template", ".test", ".tex", ".tiff",
                 ".toml", ".ttf", ".txt", ".utf-8", ".vim", ".wav", ".whl", ".woff", ".xht",
-                ".xhtml", ".xls", ".xml", ".xpm", ".xsd", ".xul", ".yaml", ".yml",
+                ".xhtml", ".xls", ".xml", ".xpm", ".xsd", ".xul", ".yaml", ".yml", ".wfp",
 
                 # File endings 
                 "-DOC", "CHANGELOG", "CONFIG", "COPYING", "COPYING.LIB", "LICENSE",
                 "LICENSE.MD", "LICENSE.TXT", "LICENSES", "MAKEFILE", "NOTICE", "NOTICE",
                 "README", "SWIFTDOC", "TEXIDOC", "TODO", "VERSION", ]
 
-FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/",
+FILTERED_DIRS = ["/.git", "/.svn", "/.eggs",
                  "__pycache__", "/node_modules", "/vendor"]
 
 GITHUB_ROOT_URL = "https://github.com"
@@ -74,6 +74,22 @@ SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get(
 SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
+
+class ScanContext:
+  def __init__(self, scan_dir='',wfp='',scantype='',format='',api_key='',sbom_path='',outfile='', files_conversion=None) -> None:
+    self.scan_dir = scan_dir
+    self.wfp=wfp
+    self.format =format
+    self.api_key=api_key
+    self.sbom_path=sbom_path
+    self.outfile = outfile
+    self.scantype = scantype
+    self.files_conversion = files_conversion
+
+  @classmethod
+  def from_dict(dict):
+    return ScanContext(scan_dir=dict.get('scan_dir'), wfp=dict.get('wfp'), scantype=dict.get('scantype'), format=dict.get('format'), api_key=dict.get('api_key'), sbom_path=dict.get('sbom_path'), outfile=dict.get('outfile'))
+      
 
 
 def print_stderr(*args, **kwargs):
@@ -155,7 +171,7 @@ def main():
 
   scan_ctx['format'] = args.format[0] if args.format else ''
   
-
+  scan_ctx = ScanContext(scan_ctx)
   # Perform the scan
   if args.url:
     scan_ctx['scan_dir'] = download_project(args.url)
@@ -168,10 +184,10 @@ def main():
       print_stderr("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
-    scan_ctx['scan_dir'] = args.scan_dir
+    scan_ctx.scan_dir = args.scan_dir
     scan_folder(scan_ctx)
   elif args.wfp:
-    scan_ctx['wfp']
+    scan_ctx.wfp = args.wfp
     scan_wfp(scan_ctx)
 
   if args.summary:
@@ -228,7 +244,7 @@ def filter_folder_files(files):
   return list
 
 
-def scan_folder(ctx):
+def scan_folder(ctx: ScanContext):
   """ Performs a scan of the folder given
 
   Parameters
@@ -242,14 +258,14 @@ def scan_folder(ctx):
   sbom_path: str
     A path to a valid CycloneDX or SPDX 2.2 JSON document.
   """
-  format = ctx.get('format')
+  format = ctx.format if ctx.format != 'obs' else None
   wfp = ''
   # This is a dictionary that is used to perform a lookup of a file name using the corresponding file index
   files_conversion = {} if format == 'obs' else None
   # We assign a number to each of the files. This avoids sending the file names to SCANOSS API,
   # thus hiding the names and the structure of the project from SCANOSS API.
   files_index = 0
-  for root, sub, files in os.walk(ctx['scan_dir']):
+  for root, sub, files in os.walk(ctx.scan_dir):
     if valid_folder(root):
       for file in filter_folder_files(files):
         files_index += 1
@@ -259,25 +275,28 @@ def scan_folder(ctx):
           wfp += wfp_for_file(files_index, path)
         else:
           wfp += wfp_for_file(file, path)
+  ctx.wfp = 'scan.wfp'
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
-  scan_wfp('scan.wfp', api_key, scantype,
-           sbom_path, files_conversion, format if format != 'obs' else None)
+  ctx.files_conversion = files_conversion
+  scan_wfp(ctx)
 
 
-def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion=None, format=None, data_extra=None):
+def scan_wfp(ctx: ScanContext, data_extra=None):
+
   global WFP_FILE_START
+  wfp_file = ctx.wfp
   file_count = count_files_in_wfp_file(wfp_file)
   cur_files = 0
   cur_size = 0
   wfp = ""
   max_component = {'name': '', 'hits': 0}
   components = {}
-  if 'xml' in format:
+  if 'xml' in ctx.format:
     with open(wfp_file) as f:
       wfp = f.read()
-    scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
-    log_result(scan_resp)
+    scan_resp = do_scan(wfp, ctx.api_key, ctx.scantype, ctx.sbom_path, ctx.format)
+    log_result(scan_resp, ctx.outfile)
   else:
     log_result("{")
     with open(wfp_file) as f:
@@ -289,10 +308,11 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
           if cur_size >= MAX_POST_SIZE:
 
             # Scan current WFP and store
-            scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'], data_extra)
+            scan_resp = do_scan(wfp, ctx.api_key, ctx.scantype, ctx.sbom_path,
+                                ctx.format, max_component['name'], data_extra)
 
             for key, value in scan_resp.items():
-              file_key = files_conversion[key] if files_conversion else key
+              file_key = ctx.files_conversion[key] if ctx.files_conversion else key
               log_result("\"%s\":%s,\n" %
                          (file_key, json.dumps(value, indent=4)))
               for v in value:
@@ -311,11 +331,12 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
             cur_size = 0
             wfp = ""
     if wfp:
-      scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format, max_component['name'], data_extra)
+      scan_resp = do_scan(wfp, ctx.api_key, ctx.scantype, ctx.sbom_path,
+                          ctx.format, max_component['name'], data_extra)
       first = True
 
       for key, value in scan_resp.items():
-        file_key = files_conversion[key] if files_conversion else key
+        file_key = ctx.files_conversion[key] if ctx.files_conversion else key
         if first:
           log_result("\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
           first = False
@@ -362,8 +383,7 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str, 
     print("The SCANOSS API returned an invalid JSON")
     with open('bad_json.txt', 'w') as f:
       f.write(r.text)
-    exit(1)
-  # Decode file names
+    return None
 
 
 def build_summary(filename: str):
