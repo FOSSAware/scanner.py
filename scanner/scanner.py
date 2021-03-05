@@ -38,8 +38,8 @@ MAX_LONG_LINE_CHARS = 1000
 WFP_FILE_START = "file="
 
 # List of extensions that are ignored
-FILTERED_EXT = [# File extensions 
-                ".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8", ".9", ".ac", ".adoc", ".am",
+FILTERED_EXT = [  # File extensions
+    ".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8", ".9", ".ac", ".adoc", ".am",
                 ".asciidoc", ".bmp", ".build", ".cfg", ".chm", ".class", ".cmake", ".cnf",
                 ".conf", ".config", ".contributors", ".copying", ".crt", ".csproj", ".css",
                 ".csv", ".cvsignore", ".dat", ".data", ".doc", ".ds_store", ".dtd", ".dts",
@@ -54,7 +54,7 @@ FILTERED_EXT = [# File extensions
                 ".toml", ".ttf", ".txt", ".utf-8", ".vim", ".wav", ".whl", ".woff", ".xht",
                 ".xhtml", ".xls", ".xml", ".xpm", ".xsd", ".xul", ".yaml", ".yml", ".wfp",
 
-                # File endings 
+                # File endings
                 "-DOC", "CHANGELOG", "CONFIG", "COPYING", "COPYING.LIB", "LICENSE",
                 "LICENSE.MD", "LICENSE.TXT", "LICENSES", "MAKEFILE", "NOTICE", "NOTICE",
                 "README", "SWIFTDOC", "TEXIDOC", "TODO", "VERSION", ]
@@ -74,13 +74,14 @@ SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
+
 class ScanContext:
-  def __init__(self, scan_dir='',wfp='',scantype='',format='',api_key='',sbom_path='',outfile='', files_conversion=None) -> None:
+  def __init__(self, scan_dir='', wfp='', scantype='', format='', api_key='', sbom_path='', outfile='', files_conversion=None) -> None:
     self.scan_dir = scan_dir
-    self.wfp=wfp
-    self.format =format
-    self.api_key=api_key
-    self.sbom_path=sbom_path
+    self.wfp = wfp
+    self.format = format
+    self.api_key = api_key
+    self.sbom_path = sbom_path
     self.outfile = outfile
     self.scantype = scantype
     self.files_conversion = files_conversion
@@ -88,14 +89,13 @@ class ScanContext:
   @classmethod
   def from_dict(dict):
     return ScanContext(scan_dir=dict.get('scan_dir'), wfp=dict.get('wfp'), scantype=dict.get('scantype'), format=dict.get('format'), api_key=dict.get('api_key'), sbom_path=dict.get('sbom_path'), outfile=dict.get('outfile'))
-      
 
 
 def print_stderr(*args, **kwargs):
   print(*args, file=sys.stderr, **kwargs)
 
 
-def log_result(str, outfile = None):
+def log_result(str, outfile=None):
   """
   Logs result to either file or STDOUT
   """
@@ -107,7 +107,7 @@ def log_result(str, outfile = None):
 
 
 def main():
-  
+
   parser = argparse.ArgumentParser(
       description='Simple scanning agains SCANOSS API.')
 
@@ -169,7 +169,7 @@ def main():
     open(scan_ctx['outfile'], 'w').close()
 
   scan_ctx['format'] = args.format[0] if args.format else ''
-  
+
   scan_ctx = ScanContext(scan_ctx)
   # Perform the scan
   if args.url:
@@ -192,8 +192,8 @@ def main():
   if args.summary:
     summary = build_summary(scan_ctx['outfile'])
     print(json.dumps(list(summary.values())))
-  
-  if args.obfuscate: 
+
+  if args.obfuscate:
     format = 'obs'
 
 
@@ -228,6 +228,7 @@ def download_project(url: str):
     return folder
   return None
 
+
 def filter_folder_files(files):
   list = []
 
@@ -239,7 +240,7 @@ def filter_folder_files(files):
         break
     if not filter:
       list.append(file)
-  
+
   return list
 
 
@@ -294,10 +295,11 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
   if 'xml' in ctx.format:
     with open(wfp_file) as f:
       wfp = f.read()
-    scan_resp = do_scan(wfp, ctx.api_key, ctx.scantype, ctx.sbom_path, ctx.format)
+    scan_resp = do_scan(wfp, ctx.api_key, ctx.scantype,
+                        ctx.sbom_path, ctx.format)
     log_result(scan_resp, ctx.outfile)
   else:
-    log_result("{")
+    log_result("{", ctx.outfile)
     with open(wfp_file) as f:
       for line in f:
         wfp += "\n" + line
@@ -313,7 +315,7 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
             for key, value in scan_resp.items():
               file_key = ctx.files_conversion[key] if ctx.files_conversion else key
               log_result("\"%s\":%s,\n" %
-                         (file_key, json.dumps(value, indent=4)))
+                         (file_key, json.dumps(value, indent=4)), ctx.outfile)
               for v in value:
                 if v.get('id') != 'none':
                   vcv = '%s:%s:%s' % (v.get('vendor'), v.get(
@@ -324,8 +326,7 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
                     components[vcv] = 1
                   if max_component['hits'] < components[vcv]:
                     max_component['name'] = v.get('component')
-                    max_component['hits'] = components[vcv]   
-
+                    max_component['hits'] = components[vcv]
 
             cur_size = 0
             wfp = ""
@@ -337,11 +338,13 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
       for key, value in scan_resp.items():
         file_key = ctx.files_conversion[key] if ctx.files_conversion else key
         if first:
-          log_result("\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
+          log_result("\"%s\":%s" %
+                     (file_key, json.dumps(value, indent=4)), ctx.outfile)
           first = False
         else:
-          log_result(",\"%s\":%s" % (file_key, json.dumps(value, indent=4)))
-      log_result("}")
+          log_result(",\"%s\":%s" %
+                     (file_key, json.dumps(value, indent=4)), ctx.outfile)
+      log_result("}", ctx.outfile)
 
 
 def count_files_in_wfp_file(wfp_file: str):
@@ -512,6 +515,7 @@ def wfp_for_file(file: str, path: str) -> str:
   with open(path, 'rb') as f:
     contents = f.read()
     return wfp_for_contents(file, contents)
+
 
 def wfp_for_contents(file: str, contents: bytes):
   file_md5 = hashlib.md5(
