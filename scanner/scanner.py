@@ -18,7 +18,6 @@
 #
 
 import argparse
-from binaryornot.check import is_binary
 from crc32c import crc32c
 import hashlib
 import json
@@ -512,13 +511,15 @@ def wfp_for_file(file: str, path: str) -> str:
 
   with open(path, 'rb') as f:
     contents = f.read()
+    return wfp_for_contents(file, contents)
 
+def wfp_for_contents(file: str, contents: bytes):
   file_md5 = hashlib.md5(
       contents).hexdigest()
   # Print file line
   wfp = 'file={0},{1},{2}\n'.format(file_md5, len(contents), file)
   # We don't process snippets for binaries.
-  if is_binary(path) or skip_snippets(contents.decode('utf-8', 'ignore'), file):
+  if skip_snippets(contents.decode('utf-8', 'ignore'), file):
     return wfp
   # Initialize variables
   gram = ""

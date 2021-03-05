@@ -7,14 +7,13 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="scanoss-scanner",
-    version="1.4.1",
+    version="1.4.2",
     author="SCANOSS",
     author_email="info@scanoss.com",
     description='Simple Python library to use the SCANOSS API.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    install_requires=["requests", "crc32c",
-                      "binaryornot"],
+    install_requires=["requests", "crc32c"],
     include_package_data=True,
     packages=find_packages(),
     classifiers=[
