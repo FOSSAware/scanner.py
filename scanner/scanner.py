@@ -87,9 +87,12 @@ class ScanContext:
     self.files_conversion = files_conversion
 
   @classmethod
-  def from_dict(dict):
-    return ScanContext(scan_dir=dict.get('scan_dir'), wfp=dict.get('wfp'), scantype=dict.get('scantype'), format=dict.get('format'), api_key=dict.get('api_key'), sbom_path=dict.get('sbom_path'), outfile=dict.get('outfile'))
+  def from_dict(self, ctx_dict):
+    return self(scan_dir=ctx_dict.get('scan_dir'), wfp=ctx_dict.get('wfp'), scantype=ctx_dict.get('scantype'), 
+                       format=ctx_dict.get('format'), api_key=ctx_dict.get('api_key'), sbom_path=ctx_dict.get('sbom_path'), outfile=ctx_dict.get('outfile'))
 
+  def __str__(self) -> str:
+      return "[scan_dir: %s, wfp: %s, scantype: %s, format: %s, api_key: %s, sbom_path: %s, outfile: %s, files_conversion: %s]" % (self.scan_dir, self.wfp, self.scantype, self.format, self.api_key, self.sbom_path, self.outfile, self.files_conversion)
 
 def print_stderr(*args, **kwargs):
   print(*args, file=sys.stderr, **kwargs)
@@ -117,8 +120,6 @@ def main():
       '--url', type=str, help="Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee")
   parser.add_argument('--wfp',  type=str,
                       help='Scan a WFP File')
-  parser.add_argument('--ignore',  type=str,
-                      help='Scan and ignore components in SBOM file')
   parser.add_argument('--identify', nargs=1, type=str,
                       help='Scan and identify components in SBOM file')
   parser.add_argument('--blacklist', nargs=1, type=str,
@@ -147,15 +148,12 @@ def main():
   scantype = ""
 
   sbom_path = ""
-  if args.ignore:
-    scantype = 'ignore'
-    sbom_path = args.ignore[0]
-  elif args.identify:
+  if args.identify:
     scantype = 'identify'
     sbom_path = args.identify[0]
   elif args.blacklist:
     scantype = 'blacklist'
-    sbom_path = args.blacklist[0]
+    sbom_path = args.blacklist
   scan_ctx['scantype'] = scantype
   scan_ctx['sbom_path'] = sbom_path
 
@@ -170,7 +168,7 @@ def main():
 
   scan_ctx['format'] = args.format[0] if args.format else ''
 
-  scan_ctx = ScanContext(scan_ctx)
+  scan_ctx = ScanContext.from_dict(scan_ctx)
   # Perform the scan
   if args.url:
     scan_ctx['scan_dir'] = download_project(args.url)
@@ -283,7 +281,6 @@ def scan_folder(ctx: ScanContext):
 
 
 def scan_wfp(ctx: ScanContext, data_extra=None):
-
   global WFP_FILE_START
   wfp_file = ctx.wfp
   file_count = count_files_in_wfp_file(wfp_file)
@@ -358,7 +355,10 @@ def count_files_in_wfp_file(wfp_file: str):
 
 def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str, context: str, data_extra=None):
   form_data = data_extra if data_extra else {}
-  if scantype:
+  
+  if sbom_path:
+    if not scantype:
+      scantype = 'identify'
     with open(sbom_path) as f:
       sbom = f.read()
     form_data = {'type': scantype, 'assets': sbom, 'context': context}
