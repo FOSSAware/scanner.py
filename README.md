@@ -4,12 +4,12 @@ The SCANOSS Scanner is a simple Python script performs a scan of a folder or a W
 
 ## Usage
 
-Run `scanner.py` as a python script, passing as argument the path to the folder to be scanned.
+Run `scanner.py` as a Python script, passing as argument the path to the folder to be scanned. You can also install the distribution and use it as a Python module.
 
 Example:
 
 ```
-python3 scanner.py /path/to/dir/to/scan
+python3 scanoss/scanner.py /path/to/dir/to/scan
 ```
 
 `scanner.py` generates a WFP file that is saved as `scan_wfp` in the current folder. This file is uploaded to the SCANOSS API, to perform a scan and return the output as in json format.
@@ -17,8 +17,8 @@ python3 scanner.py /path/to/dir/to/scan
 The complete usage can be seen by using the `-h` flag.
 
 ```
-% ./scanner.py -h
-usage: scanner.py [-h] [--url URL] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY] [--blacklist BLACKLIST] [--output OUTPUT] [--format {plain,spdx,spdx_xml,cyclonedx}] [--obfuscate] [--summary] [DIR]
+% scanner.py                                              
+usage: scanner.py [-h] [--url URL] [--wfp WFP] [--identify IDENTIFY] [--blacklist BLACKLIST] [--output OUTPUT] [--format {plain,spdx,spdx_xml,cyclonedx}] [--obfuscate] [--summary] [--key KEY] [--apiurl APIURL] [DIR]
 
 Simple scanning agains SCANOSS API.
 
@@ -29,7 +29,6 @@ optional arguments:
   -h, --help            show this help message and exit
   --url URL             Scan a URL. It supports urls containing zip files of projects, and it can download master.zip of open projects from GitHub and Gitee
   --wfp WFP             Scan a WFP File
-  --ignore IGNORE       Scan and ignore components in SBOM file
   --identify IDENTIFY   Scan and identify components in SBOM file
   --blacklist BLACKLIST
                         Scan and blacklist components in SBOM file
@@ -39,6 +38,8 @@ optional arguments:
                         Optional format of the scan result
   --obfuscate, -p       Obfuscate file names. WARNING: Obfuscation affects the scan results accuracy.
   --summary, -s         Generate a component summary of the scan
+  --key KEY, -k KEY     SCANOSS API Key token
+  --apiurl APIURL       SCANOSS API URL (overrides default value: https://osskb.org/api/scan/direct)
 ```
 
 ### Installation via pip
@@ -47,7 +48,7 @@ You can also install scanner.py via `pip`: `pip3 install scanoss-scanner`
 
 ### Scanning URL
 
-By Default, `scanner.py` uses the API URL endpoint for [SCANOSS OSS KB](https://osskb.org): https://osskb.or/api/scan/direct. You can change this by setting the environment variable `SCANOSS_SCAN_URL` to the appropriate SCANOSS API Endpoint.
+By Default, `scanner.py` uses the API URL endpoint for [SCANOSS OSS KB](https://osskb.org): https://osskb.or/api/scan/direct. You can change this by setting the environment variable `SCANOSS_SCAN_URL` to the appropriate SCANOSS API Endpoint. You can also configure the SCANOSS API token using the environment variable `SCANOSS_API_KEY`.
 
 ## Winnowing
 

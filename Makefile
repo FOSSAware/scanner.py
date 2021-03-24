@@ -5,4 +5,4 @@ dist: clean
 	python3 setup.py sdist bdist_wheel
 
 publish:
-	twine upload dist/*
+	twine upload -u ${TWINE_USERNAME} -p ${TWINE_PASSWORD} dist/*

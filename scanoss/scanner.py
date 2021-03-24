@@ -70,7 +70,7 @@ GITEE_MASTER_ZIP = "/repository/archive/master.zip"
 DEFAULT_URL = "https://osskb.org/api/scan/direct"
 SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get(
     "SCANOSS_SCAN_URL") else DEFAULT_URL
-SCANOSS_KEY_FILE = ".scanoss-key"
+SCANOSS_API_KEY = os.environ.get("SCANOSS_API_KEY") if os.environ.get("SCANOSS_API_KEY") else ''
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
@@ -132,16 +132,23 @@ def main():
       '--obfuscate', '-p', help='Obfuscate file names. WARNING: Obfuscation affects the scan results accuracy.', action='store_true')
   parser.add_argument(
       '--summary', '-s', help='Generate a component summary of the scan', action='store_true')
+  parser.add_argument('--key', '-k', nargs=1, type=str,
+                      help='SCANOSS API Key token')
+  parser.add_argument('--apiurl', nargs=1, type=str,
+                      help='SCANOSS API URL (overrides default value: https://osskb.org/api/scan/direct)')
+
 
   args = parser.parse_args()
+  if not args.scan_dir:
+    parser.print_help()
+    exit(1)
   scan_ctx = {}
   # Check for SCANOSS Key
   home = Path.home()
-  scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
-  if os.path.isfile(scanoss_keyfile):
-    # Read key from file
-    with open(scanoss_keyfile) as f:
-      scan_ctx['api_key'] = f.readline().strip()
+  
+  scan_ctx['api_key'] = args.key if args.key else SCANOSS_API_KEY
+  if args.apiurl:
+    SCANOSS_SCAN_URL = args.url
 
   # Check if scan type has been declared
 
