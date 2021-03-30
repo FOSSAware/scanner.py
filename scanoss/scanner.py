@@ -76,7 +76,7 @@ SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
 
 class ScanContext:
-  def __init__(self, scan_dir='', wfp='', scantype='', format='', api_key='', sbom_path='', outfile='', files_conversion=None) -> None:
+  def __init__(self, scan_dir='', wfp='', scantype='', format='', api_key='', sbom_path='', outfile='') -> None:
     self.scan_dir = scan_dir
     self.wfp = wfp
     self.format = format
@@ -84,7 +84,6 @@ class ScanContext:
     self.sbom_path = sbom_path
     self.outfile = outfile
     self.scantype = scantype
-    self.files_conversion = files_conversion
 
   @classmethod
   def from_dict(self, ctx_dict):
@@ -92,7 +91,7 @@ class ScanContext:
                        format=ctx_dict.get('format'), api_key=ctx_dict.get('api_key'), sbom_path=ctx_dict.get('sbom_path'), outfile=ctx_dict.get('outfile'))
 
   def __str__(self) -> str:
-      return "[scan_dir: %s, wfp: %s, scantype: %s, format: %s, api_key: %s, sbom_path: %s, outfile: %s, files_conversion: %s]" % (self.scan_dir, self.wfp, self.scantype, self.format, self.api_key, self.sbom_path, self.outfile, self.files_conversion)
+      return "[scan_dir: %s, wfp: %s, scantype: %s, format: %s, api_key: %s, sbom_path: %s, outfile: %s]" % (self.scan_dir, self.wfp, self.scantype, self.format, self.api_key, self.sbom_path, self.outfile)
 
 def print_stderr(*args, **kwargs):
   print(*args, file=sys.stderr, **kwargs)
@@ -129,13 +128,11 @@ def main():
   parser.add_argument('--format', '-f', nargs=1, type=str, choices=[
                       'plain', 'spdx', 'spdx_xml', 'cyclonedx'], help='Optional format of the scan result')
   parser.add_argument(
-      '--obfuscate', '-p', help='Obfuscate file names. WARNING: Obfuscation affects the scan results accuracy.', action='store_true')
-  parser.add_argument(
       '--summary', '-s', help='Generate a component summary of the scan', action='store_true')
   parser.add_argument('--key', '-k', nargs=1, type=str,
-                      help='SCANOSS API Key token')
+                      help='SCANOSS API Key token (optional, not needed for the default of OSSKB)')
   parser.add_argument('--apiurl', nargs=1, type=str,
-                      help='SCANOSS API URL (overrides default value: https://osskb.org/api/scan/direct)')
+                      help='SCANOSS API URL (optional, overrides default value: https://osskb.org/api/scan/direct)')
 
 
   args = parser.parse_args()
@@ -198,8 +195,6 @@ def main():
     summary = build_summary(scan_ctx['outfile'])
     print(json.dumps(list(summary.values())))
 
-  if args.obfuscate:
-    format = 'obs'
 
 
 def valid_folder(folder):
@@ -265,8 +260,6 @@ def scan_folder(ctx: ScanContext):
   """
   format = ctx.format if ctx.format != 'obs' else None
   wfp = ''
-  # This is a dictionary that is used to perform a lookup of a file name using the corresponding file index
-  files_conversion = {} if format == 'obs' else None
   # We assign a number to each of the files. This avoids sending the file names to SCANOSS API,
   # thus hiding the names and the structure of the project from SCANOSS API.
   files_index = 0
@@ -275,15 +268,11 @@ def scan_folder(ctx: ScanContext):
       for file in filter_folder_files(files):
         files_index += 1
         path = os.path.join(root, file)
-        if files_conversion:
-          files_conversion[str(files_index)] = path
-          wfp += wfp_for_file(files_index, path)
-        else:
-          wfp += wfp_for_file(file, path)
+        
+        wfp += wfp_for_file(path)
   ctx.wfp = 'scan.wfp'
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
-  ctx.files_conversion = files_conversion
   scan_wfp(ctx)
 
 
@@ -317,9 +306,8 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
                                 ctx.format, max_component['name'], data_extra)
 
             for key, value in scan_resp.items():
-              file_key = ctx.files_conversion[key] if ctx.files_conversion else key
               log_result("\"%s\":%s,\n" %
-                         (file_key, json.dumps(value, indent=4)), ctx.outfile)
+                         (key, json.dumps(value, indent=4)), ctx.outfile)
               for v in value:
                 if v.get('id') != 'none':
                   vcv = '%s:%s:%s' % (v.get('vendor'), v.get(
@@ -340,14 +328,13 @@ def scan_wfp(ctx: ScanContext, data_extra=None):
       first = True
 
       for key, value in scan_resp.items():
-        file_key = ctx.files_conversion[key] if ctx.files_conversion else key
         if first:
           log_result("\"%s\":%s" %
-                     (file_key, json.dumps(value, indent=4)), ctx.outfile)
+                     (key, json.dumps(value, indent=4)), ctx.outfile)
           first = False
         else:
           log_result(",\"%s\":%s" %
-                     (file_key, json.dumps(value, indent=4)), ctx.outfile)
+                     (key, json.dumps(value, indent=4)), ctx.outfile)
       log_result("}", ctx.outfile)
 
 
@@ -506,7 +493,7 @@ def skip_snippets(src: str, file: str) -> bool:
   return False
 
 
-def wfp_for_file(file: str, path: str) -> str:
+def wfp_for_file(path: str) -> str:
   """ Returns the WFP for a file by executing the winnowing algorithm over its contents.
 
   Parameters
@@ -514,14 +501,14 @@ def wfp_for_file(file: str, path: str) -> str:
   file: str
     The name of the file
   path : str
-    The full contents of the file as a byte array.
+    The full path of the file.
   """
   contents = None
   binary = False
 
   with open(path, 'rb') as f:
     contents = f.read()
-    return wfp_for_contents(file, contents)
+    return wfp_for_contents(path, contents)
 
 
 def wfp_for_contents(file: str, contents: bytes):
