@@ -157,7 +157,7 @@ def main():
     sbom_path = args.identify[0]
   elif args.blacklist:
     scantype = 'blacklist'
-    sbom_path = args.blacklist
+    sbom_path = args.blacklist[0]
   scan_ctx['scantype'] = scantype
   scan_ctx['sbom_path'] = sbom_path
 
