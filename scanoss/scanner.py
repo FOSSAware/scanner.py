@@ -143,9 +143,9 @@ def main():
   # Check for SCANOSS Key
   home = Path.home()
   
-  scan_ctx['api_key'] = args.key if args.key else SCANOSS_API_KEY
+  scan_ctx['api_key'] = args.key[0] if args.key else SCANOSS_API_KEY
   if args.apiurl:
-    SCANOSS_SCAN_URL = args.url
+    SCANOSS_SCAN_URL = args.apiurl[0]
 
   # Check if scan type has been declared
 

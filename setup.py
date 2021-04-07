@@ -7,7 +7,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="scanoss-scanner",
-    version="1.7.1",
+    version="1.7.2",
     author="SCANOSS",
     author_email="info@scanoss.com",
     description='Simple Python library to use the SCANOSS API.',
