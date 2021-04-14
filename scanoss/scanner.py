@@ -109,7 +109,8 @@ def log_result(str, outfile=None):
 
 
 def main():
-
+  global SCANOSS_SCAN_URL
+  global SCANOSS_API_KEY
   parser = argparse.ArgumentParser(
       description='Simple scanning agains SCANOSS API.')
 
