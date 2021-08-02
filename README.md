@@ -1,4 +1,11 @@
-# SCANOSS Scanner
+# Deprecated
+
+**Warning**
+This project is now deprecated and has been replaced by the [SCANOSS Python Library](https://github.com/scanoss/scanoss.py).
+
+No more development will be done on this project and users should look to switch to [scanoss-py](https://pypi.org/project/scanoss) as soon as possible.
+
+## SCANOSS Scanner
 
 The SCANOSS Scanner is a simple Python script performs a scan of a folder or a WFP file using SCANOSS API. 
 
