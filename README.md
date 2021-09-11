@@ -55,7 +55,7 @@ You can also install scanner.py via `pip`: `pip3 install scanoss-scanner`
 
 ### Scanning URL
 
-By Default, `scanner.py` uses the API URL endpoint for [SCANOSS OSS KB](https://osskb.org): https://osskb.or/api/scan/direct. You can change this by setting the environment variable `SCANOSS_SCAN_URL` to the appropriate SCANOSS API Endpoint. You can also configure the SCANOSS API token using the environment variable `SCANOSS_API_KEY`.
+By Default, `scanner.py` uses the API URL endpoint for [SCANOSS OSS KB](https://osskb.org): https://osskb.org/api/scan/direct. You can change this by setting the environment variable `SCANOSS_SCAN_URL` to the appropriate SCANOSS API Endpoint. You can also configure the SCANOSS API token using the environment variable `SCANOSS_API_KEY`.
 
 ## Winnowing
 
